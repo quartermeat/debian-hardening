@@ -41,3 +41,10 @@ Apply was not run against a live firewall. The dry run lists every command or wr
 - `python3 -m unittest -v test_phase1_firewall.py test_phase2_ssh.py` — pass (20 tests).
 - `python3 phase2_ssh.py` — pass; rootless dry run.
 - `git diff --check` — pass.
+
+## Phase 3 implementation
+
+- Added `phase3_onion.py`: rootless dry run, root-only apply, Tor config include and SSH onion drop-in, Tor-owned service and client directories, x25519 client authorization generated through OpenSSL, dated backups and action log, idempotent reload, rollback on failure, and post-apply verification.
+- Client private key material remains in memory and is printed once after successful verification. The onion hostname appears only with `--show-address` or after successful apply, never in the action log.
+- Added `test_phase3_onion.py` with injected command output and temporary paths for dry run, root gate, known base32 vector, client management, idempotency, config failure restoration, hostname display, and new public listener detection.
+- Added Phase 3 setup and rollback instructions to `README.md`. No live Tor or SSH configuration was changed.
