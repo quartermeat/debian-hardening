@@ -50,3 +50,20 @@ Host home
 Termux must have an `nc` that supports SOCKS5 (`-X 5 -x`). Generate the separate SSH login key with `ssh-keygen -t ed25519 -C phone`, copy its `.pub` file to this machine, and run `sudo python3 phase2_ssh.py --apply --add-key phone.pub --label phone`. Then test `ssh home` from the phone on mobile data with Wi-Fi off. A phone without the onion authorization key should not be able to fetch the descriptor. Keep a local session available during the first test.
 
 Backups and the action log are under `/root/hardening-backups/YYYY-MM-DD/phase3/`. To roll back, restore the backed-up torrc and drop-in if they existed; otherwise remove `/etc/tor/torrc.d/50-ssh-onion.conf` and the added `%include /etc/tor/torrc.d/*.conf` line. Run `sudo tor --defaults-torrc /usr/share/tor/tor-service-defaults-torrc -f /etc/tor/torrc --RunAsDaemon 0 --verify-config` and `sudo systemctl reload tor@default`. Optionally remove `/var/lib/tor/ssh/` after saving any authorization files needed for recovery. Removing the service directory changes the onion address.
+
+## Nightly health check
+
+`hardening-check` runs without sudo and checks the expected services, UFW, SSH and Tor configuration, SSH authorized keys, and TCP listeners. It reads only public configuration and socket state; it does not access Tor service keys or the onion hostname.
+
+```sh
+go build -o hardening-check ./cmd/hardening-check
+./hardening-check
+./hardening-check --json
+./hardening-check --notify
+```
+
+Each check reports PASS or FAIL with a short reason. Exit status is 0 when all checks pass, 1 when any check fails, and 2 for usage, output, or baseline-write errors. `--notify` sends a desktop notification listing failed checks when available.
+
+Other non-loopback TCP listeners must be listed one per line in `~/.config/hardening-check/allowed-listeners`; `#` comments are accepted. Entries can be `addr:port`, `*:port` (any address on that port), `port` (the same port-only match), or `process:NAME` (the process name shown by `ss -ltnpH`). Process rules match only when `ss` can show the owning process; use an address or port rule for listeners owned by another user whose process is hidden. A missing file means no listeners are allowed. Review current listeners before saving them with `./hardening-check --write-baseline`. That command replaces the baseline and exits without running the other checks. It writes `process:NAME # addr:port` when a process is visible, or `addr:port` otherwise. An exposed SSH listener on port 22 always fails, even if listed in the baseline. If sockets cannot be read, the TCP check fails with a `cannot read sockets` detail.
+
+For a user systemd timer, run the binary with `--notify` from the user account and schedule it nightly. Use `--json` for log collection or machine processing.
