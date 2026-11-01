@@ -15,14 +15,14 @@ Rollback: `sudo ufw disable`, restore the relevant files from the printed backup
 
 ## Phase 2: localhost-only SSH
 
-`phase2_ssh.py` limits SSH to `127.0.0.1`, disables password and keyboard-interactive login, and accepts only ed25519 public keys. Remote access requires a later localhost bridge, such as the planned authorized onion service. The default run is a rootless dry run.
+`phase2_ssh.py` limits SSH to `127.0.0.1`, disables password and keyboard-interactive login, and accepts only ed25519 public keys. It closes an idle shell after 10 minutes, drops its unused connection after 1 minute, and detects dead clients after about 3 minutes. Remote access requires a later localhost bridge, such as the planned authorized onion service. The default run is a rootless dry run.
 
 ```sh
 python3 phase2_ssh.py
 sudo python3 phase2_ssh.py --apply --add-key /path/to/phone.pub --label phone
 ```
 
-Repeat `--add-key PUBKEY_FILE --label NAME` for each device; omit both to install the SSH settings with no authorized keys. Generate a key on a phone in Termux with `pkg install openssh; ssh-keygen -t ed25519 -C phone`, or on a laptop or desktop with `ssh-keygen -t ed25519 -C <device>`. Copy each `.pub` file to this machine before applying. Use `--user NAME` to select an account other than `quartermeat`.
+Repeat `--add-key PUBKEY_FILE --label NAME` for each device; omit both to install the SSH settings without adding keys. Existing `authorized_keys` entries are preserved. Generate a key on a phone in Termux with `pkg install openssh; ssh-keygen -t ed25519 -C phone`, or on a laptop or desktop with `ssh-keygen -t ed25519 -C <device>`. Copy each `.pub` file to this machine before applying. Use `--user NAME` to select an account other than `quartermeat`.
 
 The script backs up an existing drop-in and `authorized_keys` under `/root/hardening-backups/YYYY-MM-DD/phase2/`, tests the SSH configuration before reloading, and checks effective settings and listeners afterward. It prints rollback commands. If a drop-in existed before applying, restore its backup instead of deleting it during rollback. Keep a local session available while checking SSH access through the planned bridge.
 
@@ -53,7 +53,7 @@ Backups and the action log are under `/root/hardening-backups/YYYY-MM-DD/phase3/
 
 ## Nightly health check
 
-`hardening-check` runs without sudo and checks the expected services, UFW, SSH and Tor configuration, SSH authorized keys, and TCP listeners. It reads only public configuration and socket state; it does not access Tor service keys or the onion hostname.
+`hardening-check` runs without sudo and checks the expected services, UFW, SSH and Tor configuration, SSH authorized keys, and TCP listeners. The SSH configuration check requires an active `ChannelTimeout session=10m` in the phase 2 drop-in. It reads only public configuration and socket state; it does not access Tor service keys or the onion hostname.
 
 ```sh
 go build -o hardening-check ./cmd/hardening-check

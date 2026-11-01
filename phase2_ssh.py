@@ -36,7 +36,11 @@ def desired_config(user):
             "PermitRootLogin no\n"
             f"AllowUsers {user}\n"
             "X11Forwarding no\n"
-            "MaxAuthTries 3\n")
+            "MaxAuthTries 3\n"
+            "ChannelTimeout session=10m\n"
+            "UnusedConnectionTimeout 1m\n"
+            "ClientAliveInterval 60\n"
+            "ClientAliveCountMax 3\n")
 
 
 def has_early_include(content):
@@ -170,10 +174,19 @@ class Hardener:
                     "passwordauthentication": ["no"],
                     "kbdinteractiveauthentication": ["no"],
                     "permitrootlogin": ["no"],
-                    "allowusers": [self.user.lower()]}
+                    "allowusers": [self.user.lower()],
+                    "unusedconnectiontimeout": ["60", "1m"],
+                    "clientaliveinterval": ["60"],
+                    "clientalivecountmax": ["3"]}
         for setting, wanted in expected.items():
-            if values.get(setting) != wanted:
+            actual = values.get(setting)
+            if actual is None or len(actual) != 1 or actual[0] not in wanted:
                 raise HardeningError(f"sshd -T mismatch: {setting}: {values.get(setting)} (expected {wanted})")
+        channel_values = values.get("channeltimeout", [])
+        sessions = [token.split("=", 1)[1] for value in channel_values
+                    for token in value.split() if token.startswith("session=")]
+        if len(sessions) != 1 or sessions[0] not in ("600", "10m"):
+            raise HardeningError(f"sshd -T mismatch: channeltimeout: {channel_values} (expected session=10m)")
         sockets = self.run(["ss", "-ltn"]).stdout
         for line in sockets.splitlines()[1:]:
             parts = line.split()
@@ -182,7 +195,7 @@ class Hardener:
             local = parts[3].lower()
             if local in ("0.0.0.0:22", "[::]:22", "*:22", ":::22"):
                 raise HardeningError(f"Public SSH listener remains: {local}")
-        self.say("Verification passed: SSH is key-only and listens on localhost only.")
+        self.say("Verification passed: SSH is key-only, idle timeouts are set, and it listens on localhost only.")
 
     def apply(self, key_specs):
         self.resolve_user()

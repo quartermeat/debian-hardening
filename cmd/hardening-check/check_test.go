@@ -24,7 +24,7 @@ func fixture(t *testing.T, ss string) inspector {
 		}
 	}
 	write("/etc/ufw/ufw.conf", "# ENABLED=no\nENABLED=yes\n", 0644)
-	write("/etc/ssh/sshd_config.d/10-hardening.conf", "ListenAddress 127.0.0.1\nPasswordAuthentication no\n", 0644)
+	write("/etc/ssh/sshd_config.d/10-hardening.conf", "ListenAddress 127.0.0.1\nPasswordAuthentication no\nChannelTimeout session=10m\n", 0644)
 	write("/etc/tor/torrc.d/50-ssh-onion.conf", "HiddenServicePort 22 127.0.0.1:22\n", 0644)
 	write("/etc/tor/torrc", "%include /etc/tor/torrc.d/*.conf\n", 0644)
 	write("/etc/apt/apt.conf.d/52hardening-unattended", "", 0644)
@@ -185,6 +185,23 @@ func TestConfigAndKeysFailures(t *testing.T) {
 	}
 	if find(t, i.inspect(), "authorized_keys").Status != "FAIL" {
 		t.Fatal("accepted RSA key")
+	}
+}
+
+func TestSSHIdleTimeoutRequired(t *testing.T) {
+	i := fixture(t, safeSS)
+	path := i.path("/etc/ssh/sshd_config.d/10-hardening.conf")
+	for _, content := range []string{
+		"ListenAddress 127.0.0.1\nPasswordAuthentication no\n",
+		"ListenAddress 127.0.0.1\nPasswordAuthentication no\n# ChannelTimeout session=10m\n",
+		"ListenAddress 127.0.0.1\nPasswordAuthentication no\nChannelTimeout session=20m\n",
+	} {
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if c := find(t, i.inspect(), "SSH configuration"); c.Status != "FAIL" || !strings.Contains(c.Detail, "ChannelTimeout session=10m") {
+			t.Fatalf("accepted missing idle timeout: %+v", c)
+		}
 	}
 }
 

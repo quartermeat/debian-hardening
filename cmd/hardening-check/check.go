@@ -269,7 +269,7 @@ func (i inspector) inspect() Result {
 	checks := i.services()
 	checks = append(checks,
 		i.file("UFW enabled", "/etc/ufw/ufw.conf", "ENABLED=yes"),
-		i.file("SSH configuration", "/etc/ssh/sshd_config.d/10-hardening.conf", "ListenAddress 127.0.0.1", "PasswordAuthentication no"),
+		i.file("SSH configuration", "/etc/ssh/sshd_config.d/10-hardening.conf", "ListenAddress 127.0.0.1", "PasswordAuthentication no", "ChannelTimeout session=10m"),
 		i.file("Tor SSH onion", "/etc/tor/torrc.d/50-ssh-onion.conf", "HiddenServicePort 22 127.0.0.1:22"),
 		i.file("Tor include", "/etc/tor/torrc", "%include /etc/tor/torrc.d/*.conf"),
 		i.file("unattended upgrades", "/etc/apt/apt.conf.d/52hardening-unattended"),

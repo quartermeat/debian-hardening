@@ -22,7 +22,9 @@ class FakeRunner:
     @staticmethod
     def good_effective():
         return ("listenaddress 127.0.0.1:22\npasswordauthentication no\n"
-                "kbdinteractiveauthentication no\npermitrootlogin no\nallowusers quartermeat\n")
+                "kbdinteractiveauthentication no\npermitrootlogin no\nallowusers quartermeat\n"
+                "channeltimeout session=600\nunusedconnectiontimeout 60\n"
+                "clientaliveinterval 60\nclientalivecountmax 3\n")
 
     def __call__(self, argv):
         argv = tuple(argv)
@@ -94,6 +96,43 @@ class PhaseTwoTests(unittest.TestCase):
         self.assertIn("phone", (self.home / ".ssh" / "authorized_keys").read_text())
         self.assertEqual(self.fake.calls.count(("systemctl", "reload", "ssh")), 1)
         self.assertEqual(self.fake.calls.count(("sshd", "-t")), 1)
+
+    def test_apply_without_add_key_preserves_existing_authorized_keys(self):
+        ssh_dir = self.home / ".ssh"
+        ssh_dir.mkdir(mode=0o700)
+        authorized = ssh_dir / "authorized_keys"
+        original = b"# keep this comment\n" + ED_KEY.encode() + b" existing\n"
+        authorized.write_bytes(original)
+        authorized.chmod(0o600)
+        before = authorized.stat()
+        self.assertEqual(self.run_main(["--apply"])[0], 0)
+        self.assertEqual(authorized.read_bytes(), original)
+        self.assertEqual(authorized.stat().st_mtime_ns, before.st_mtime_ns)
+        self.assertFalse((self.backup / "authorized_keys").exists())
+
+    def test_old_drop_in_upgraded_once_with_backup(self):
+        old = phase2.desired_config("quartermeat").split("ChannelTimeout", 1)[0]
+        self.drop_in.write_text(old, encoding="utf-8")
+        self.assertEqual(self.run_main(["--apply"])[0], 0)
+        self.assertEqual((self.backup / "10-hardening.conf").read_text(), old)
+        self.assertEqual(self.drop_in.read_text(), phase2.desired_config("quartermeat"))
+        self.assertEqual(self.run_main(["--apply"])[0], 0)
+        self.assertEqual(self.fake.calls.count(("sshd", "-t")), 1)
+        self.assertEqual(self.fake.calls.count(("systemctl", "reload", "ssh")), 1)
+
+    def test_effective_idle_settings_required(self):
+        for setting, replacement in (("channeltimeout session=600", "channeltimeout session=0"),
+                                     ("unusedconnectiontimeout 60", "unusedconnectiontimeout 0"),
+                                     ("clientaliveinterval 60", "clientaliveinterval 0"),
+                                     ("clientalivecountmax 3", "clientalivecountmax 0")):
+            with self.subTest(setting=setting):
+                self.fake.effective = self.fake.good_effective().replace(setting, replacement)
+                with self.assertRaisesRegex(phase2.HardeningError, "sshd -T mismatch"):
+                    self.hardener().verify()
+        self.fake.effective = (self.fake.good_effective()
+                               .replace("channeltimeout session=600", "channeltimeout session=10m")
+                               .replace("unusedconnectiontimeout 60", "unusedconnectiontimeout 1m"))
+        self.hardener().verify()
 
     def test_failed_sshd_test_restores_prior_config_without_reload(self):
         self.drop_in.write_text("Prior config\n", encoding="utf-8")
