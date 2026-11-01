@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Import a phone's Ed25519 SSH public key over adb and run phase2_ssh.py.
 
-The default source is /sdcard/Download/phone.pub. Use --file for a key
+The default source is /storage/emulated/0/phone.pub. Use --file for a key
 transferred by hand. The key is held in a private temporary directory while
 phase 2 runs, then removed. --dry-run validates and prints the install command.
 """
@@ -18,7 +18,7 @@ import sys
 import tempfile
 
 
-DEFAULT_REMOTE = "/sdcard/Download/phone.pub"
+DEFAULT_REMOTE = "/storage/emulated/0/phone.pub"
 KEY_LINE = re.compile(r"ssh-ed25519 ([A-Za-z0-9+/]+={0,2})(?: ([^\r\n]+))?\Z")
 
 
