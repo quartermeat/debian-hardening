@@ -261,3 +261,20 @@ func TestExitAndNotification(t *testing.T) {
 		t.Fatalf("usage code=%d", code)
 	}
 }
+
+func TestOnionOptional(t *testing.T) {
+	i := fixture(t, safeSS)
+	path := i.path("/etc/tor/torrc.d/50-ssh-onion.conf")
+	if err := os.WriteFile(path, []byte("HiddenServicePort 22 0.0.0.0:22\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if c := find(t, i.inspect(), "Tor SSH onion"); c.Status != "FAIL" {
+		t.Fatalf("accepted wrong onion target: %+v", c)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if c := find(t, i.inspect(), "Tor SSH onion"); c.Status != "PASS" || !strings.Contains(c.Detail, "absent") {
+		t.Fatalf("absent onion should pass: %+v", c)
+	}
+}

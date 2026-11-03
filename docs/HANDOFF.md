@@ -1,6 +1,6 @@
 # Handoff
 
-Updated 2026-11-01.
+Updated 2026-11-02.
 
 ## State
 
@@ -9,7 +9,7 @@ Updated 2026-11-01.
 | Phase 1: LAN-only UFW, security auto-updates | v0.1.0 | Applied |
 | Phase 2: sshd on 127.0.0.1, key-only | v0.1.0 | Applied |
 | Phase 2 idle timeouts (`ChannelTimeout session=10m`, `UnusedConnectionTimeout 1m`, ClientAlive 60×3) | v0.3.1 | **Not applied**. Needs `sudo python3 phase2_ssh.py --apply` |
-| Phase 3: client-authorized Tor onion → localhost sshd | v0.2.0 | Applied. One client, `phone`. `ssh home` works from the Pixel Terminal app |
+| Phase 3: client-authorized Tor onion → localhost sshd | v0.2.0 | **Removed 2026-11-02** after a client auth line leaked into a chat log: drop-in deleted, `/var/lib/tor/ssh` destroyed. Rerunning phase 3 creates a new address. `hardening-check` passes the onion check when the drop-in is absent (v0.3.3) |
 | Phone key import (`import_phone_key.py`) and secret push (`push_onion_auth.py`) | v0.2.2 | Used once and worked |
 | `hardening-check` (Go, rootless) | v0.3.1 | Installed at `~/.local/bin/hardening-check` |
 
@@ -23,6 +23,8 @@ GitHub: https://github.com/quartermeat/debian-hardening (public). The remote has
 4. Push local commits after v0.2.2 to GitHub, after a secret scan.
 
 ## Phone notes
+
+- Termux (GitHub v0.118.3) is installed with tor, openssh and netcat; `/sdcard/termux-home-setup.sh` finishes its setup once an auth line is pushed. Play Protect blocks the adb install until you choose "Install anyway".
 
 - The Pixel's **Terminal** app is a Debian VM (user `droid`). `/mnt/shared` is `/storage/emulated/0`, and sudo cannot read it, so copy files to `/tmp` first.
 - Docked on the Dell Thunderbolt dock through the KVM hub: the Logitech Bolt receiver's mouse is dropped by Android about 1.5 s after it connects. Use the LIFT mouse on Bluetooth (another Easy-Switch channel). Keys go to the last-focused display, so click the window on the monitor.

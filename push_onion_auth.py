@@ -48,9 +48,12 @@ def push(local, name):
 
 
 def main():
-    secret = getpass.getpass('Paste the secret line (hidden): ').strip()
+    secret = getpass.getpass('Not a password. Paste the line printed by\n'
+                             '  sudo python3 phase3_onion.py --apply --add-client LABEL\n'
+                             '(starts with the onion address, contains :descriptor:x25519:; input hidden): ').strip()
     if not LINE.fullmatch(secret):
-        sys.exit('That does not look like <56-char address>:descriptor:x25519:<52-char key>.')
+        sys.exit('Rejected (nothing saved or sent): expected <56-char address>:descriptor:x25519:<52-char key>, '
+                 'the line printed by phase3_onion.py --add-client.')
     with tempfile.TemporaryDirectory() as tmp:
         os.chmod(tmp, 0o700)
         auth = os.path.join(tmp, 'home.auth_private')

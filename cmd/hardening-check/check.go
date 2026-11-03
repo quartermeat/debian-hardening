@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -61,6 +62,14 @@ func (i inspector) file(name, path string, required ...string) Check {
 		}
 	}
 	return pass(name, path+" has required settings")
+}
+
+// optionalFile passes when path is absent (feature turned off) and checks it like file otherwise.
+func (i inspector) optionalFile(name, path string, required ...string) Check {
+	if _, err := os.Stat(i.path(path)); errors.Is(err, fs.ErrNotExist) {
+		return pass(name, path+" absent (disabled)")
+	}
+	return i.file(name, path, required...)
 }
 
 // Match active whole directives, allowing indentation and whitespace between fields.
@@ -270,7 +279,7 @@ func (i inspector) inspect() Result {
 	checks = append(checks,
 		i.file("UFW enabled", "/etc/ufw/ufw.conf", "ENABLED=yes"),
 		i.file("SSH configuration", "/etc/ssh/sshd_config.d/10-hardening.conf", "ListenAddress 127.0.0.1", "PasswordAuthentication no", "ChannelTimeout session=10m"),
-		i.file("Tor SSH onion", "/etc/tor/torrc.d/50-ssh-onion.conf", "HiddenServicePort 22 127.0.0.1:22"),
+		i.optionalFile("Tor SSH onion", "/etc/tor/torrc.d/50-ssh-onion.conf", "HiddenServicePort 22 127.0.0.1:22"),
 		i.file("Tor include", "/etc/tor/torrc", "%include /etc/tor/torrc.d/*.conf"),
 		i.file("unattended upgrades", "/etc/apt/apt.conf.d/52hardening-unattended"),
 		i.listeners(), i.keys(),
